@@ -1,7 +1,7 @@
 # src/core/llm/base_llm.py
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
-import logging
+from typing import cast, Any
+
 from src.core.logger import get_logger
 from ..config_manager import LLMConfig
 
@@ -32,12 +32,15 @@ class OpenAIClient(BaseLLMClient):
         """Generate response using OpenAI"""
         try:
             # Use the new v1 API
+            # Cast messages to Any to satisfy type checker
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
             response = self.client.chat.completions.create(
                 model=self.config.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+                messages=cast(Any, messages),  # Type cast for PyCharm
                 max_tokens=self.config.max_tokens,
                 temperature=self.config.temperature,
                 **kwargs
@@ -61,12 +64,15 @@ class AnthropicClient(BaseLLMClient):
     async def generate(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """Generate response using Anthropic"""
         try:
+            # Cast messages to Any to satisfy type checker
+            messages = [{"role": "user", "content": user_prompt}]
+            
             response = self.client.messages.create(
                 model=self.config.model,
                 max_tokens=self.config.max_tokens,
                 temperature=self.config.temperature,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=cast(Any, messages),  # Type cast for PyCharm
                 **kwargs
             )
 

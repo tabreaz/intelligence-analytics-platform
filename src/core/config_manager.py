@@ -1,11 +1,11 @@
 # src/core/config_manager.py
-import os
-import yaml
-from typing import Dict, Any, Optional
-from pathlib import Path
-import logging
-from src.core.logger import get_logger
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Any
+
+import yaml
+
+from src.core.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -62,16 +62,18 @@ class ConfigManager:
                 with open(config_path, 'r') as f:
                     content = f.read()
                     # Replace environment variables
-                    content = self._substitute_env_vars(content)
+                    content = ConfigManager._substitute_env_vars(content)
                     config_data = yaml.safe_load(content)
                     self._configs[config_file.split('.')[0]] = config_data
                     logger.info(f"Loaded config: {config_file}")
             else:
                 logger.warning(f"Config file not found: {config_file}")
 
-    def _substitute_env_vars(self, content: str) -> str:
+    @staticmethod
+    def _substitute_env_vars(content: str) -> str:
         """Replace ${VAR:default} patterns with environment variables"""
         import re
+        import os
 
         def replace_var(match):
             var_expr = match.group(1)
@@ -82,7 +84,7 @@ class ConfigManager:
 
             return os.environ.get(var_name, default_value)
 
-        return re.sub(r'\$\{([^}]+)\}', replace_var, content)
+        return re.sub(r'\${([^}]+)}', replace_var, content)
 
     def get_database_config(self, db_name: str) -> DatabaseConfig:
         """Get database configuration"""
