@@ -39,6 +39,9 @@ class LocationExtractorResponseParser:
         try:
             # Clean response
             cleaned = cls._clean_response(response)
+            
+            # Debug logging
+            logger.debug(f"Cleaned response: {cleaned[:200]}...")
 
             # Parse JSON
             result = json.loads(cleaned)
@@ -79,7 +82,7 @@ class LocationExtractorResponseParser:
     def _clean_response(cls, response: str) -> str:
         """Clean markdown and extract JSON"""
         if not response:
-            return "[]"
+            return "{}"
 
         cleaned = response.strip()
 
@@ -91,21 +94,32 @@ class LocationExtractorResponseParser:
             cleaned = re.sub(r'\n?```$', '', cleaned)
             cleaned = cleaned.strip()
 
-        # Extract JSON array or object
-        # First try array
-        first_bracket = cleaned.find('[')
-        last_bracket = cleaned.rfind(']')
-
-        if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
-            return cleaned[first_bracket:last_bracket + 1]
-
-        # Then try object
-        first_brace = cleaned.find('{')
-        last_brace = cleaned.rfind('}')
-
-        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-            return cleaned[first_brace:last_brace + 1]
-
+        # Remove any trailing "..." that might be from logging truncation
+        if cleaned.endswith('...'):
+            # Find the last complete JSON structure before the truncation
+            # Try to find matching braces/brackets
+            brace_count = 0
+            bracket_count = 0
+            last_valid_pos = -1
+            
+            for i, char in enumerate(cleaned):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        last_valid_pos = i + 1
+                elif char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
+                    if bracket_count == 0 and brace_count == 0:
+                        last_valid_pos = i + 1
+            
+            if last_valid_pos > 0:
+                cleaned = cleaned[:last_valid_pos]
+        
+        # Just return the cleaned string - let JSON parser handle validation
         return cleaned
 
     @classmethod

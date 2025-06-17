@@ -7,6 +7,7 @@ agents:
       - clickhouse
       - redis
       - session
+      - llm
     max_locations: 200
     default_radius_meters: 200
     max_radius_meters: 5000

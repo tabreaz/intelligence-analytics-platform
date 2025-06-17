@@ -21,8 +21,6 @@ scripts/
 test/
 tests/
 test_*.py
-analyze_test*.py
-check_schema_coverage*.py
 
 # Environment files
 .env*

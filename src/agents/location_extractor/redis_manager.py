@@ -13,14 +13,18 @@ class RedisGeohashManager:
     """Utility for loading and searching geohashes in Redis"""
 
     def __init__(self, redis_config: Dict):
-        self.redis_client = redis.Redis(
-            host=redis_config['host'],
-            port=redis_config['port'],
-            db=redis_config['db'],
-            password=redis_config.get('password'),
-            ssl=redis_config.get('ssl', False),
-            decode_responses=True
-        )
+        # Support both direct client and config
+        if 'client' in redis_config:
+            self.redis_client = redis_config['client']
+        else:
+            self.redis_client = redis.Redis(
+                host=redis_config['host'],
+                port=redis_config['port'],
+                db=redis_config['db'],
+                password=redis_config.get('password'),
+                ssl=redis_config.get('ssl', False),
+                decode_responses=True
+            )
         self.geohash_key = "system:geohashes"
 
     def load_geohashes_from_list(self, geohash_list: List[str], clear_existing: bool = False) -> int:

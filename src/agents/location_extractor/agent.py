@@ -1,14 +1,17 @@
 # src/agents/location_extractor/agent.py
-from src.agents.base_agent import BaseAgent, AgentRequest, AgentResponse, AgentStatus
-from src.agents.location_extractor.location_processor import LocationProcessor
-from src.agents.location_extractor.redis_manager import RedisGeohashManager
-from src.agents.location_extractor.geohash_storage import GeohashStorageManager
-from src.core.activity_logger import ActivityLogger
-from src.core.config_manager import ConfigManager
-from src.core.llm.base_llm import LLMClientFactory
-from src.core.logger import get_logger
-from src.core.session_manager_models import QueryContext
-from src.core.training_logger import TrainingLogger
+"""
+Location Extractor Agent - Extracts locations from queries and converts to geohashes
+Modernized version using BaseAgent with resource management
+"""
+import re
+from datetime import datetime
+from typing import List, Dict, Any
+
+from .geohash_storage import GeohashStorageManager
+from .location_processor import LocationProcessor
+from .redis_manager import RedisGeohashManager
+from ..base_agent import BaseAgent, AgentResponse, AgentRequest
+from ...core.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -16,282 +19,223 @@ logger = get_logger(__name__)
 class LocationExtractorAgent(BaseAgent):
     """Agent for extracting locations from prompts and returning geohashes"""
 
-    def __init__(self, name: str, config: dict, config_manager: ConfigManager, session_manager=None):
-        super().__init__(name, config)
-        self.config_manager = config_manager
-        self.session_manager = session_manager
-
-        # Initialize Redis manager
-        redis_config = config_manager.get_database_config('redis').__dict__
-        self.redis_manager = RedisGeohashManager(redis_config)
+    def __init__(self, name: str, config: dict, resource_manager):
+        """Initialize with agent-specific components only"""
+        super().__init__(name, config, resource_manager)
+        
+        # Agent-specific components
+        # Initialize Redis manager using resource from resource_manager
+        redis_client = resource_manager.get_redis_client()
+        self.redis_manager = RedisGeohashManager({'client': redis_client})
         
         # Initialize geohash storage manager (ClickHouse)
         self.geohash_storage = None
         try:
+            ch_pool = resource_manager.get_clickhouse_pool()
+            # Create a ClickHouseClient with the pool
             from ...core.database.clickhouse_client import ClickHouseClient
-            ch_config = config_manager.get_database_config('clickhouse')
-            ch_client = ClickHouseClient(ch_config)
+            ch_config = resource_manager.config_manager.get_database_config('clickhouse')
+            ch_client = ClickHouseClient(ch_config, use_pool=True)
+            ch_client._pool = ch_pool  # Use the shared pool
             self.geohash_storage = GeohashStorageManager(ch_client)
         except Exception as e:
             logger.warning(f"Could not initialize geohash storage: {e}")
-
-        # Initialize LLM client
-        llm_config = config_manager.get_llm_config()
-        self.llm_client = LLMClientFactory.create_client(llm_config)
-
-        # Initialize location processor
+        
+        # Initialize location processor with LLM client from resource manager
+        llm_client = resource_manager.get_llm_client()
         self.location_processor = LocationProcessor(
-            config, self.llm_client, self.redis_manager
+            config, llm_client, self.redis_manager
         )
-
-        # Enable training data logging
-        self.enable_training_data = config.get('enable_training_data', True)
-
-        # Initialize training logger
-        self.training_logger = TrainingLogger(session_manager) if self.enable_training_data else None
-
-        # Initialize activity logger
-        self.activity_logger = ActivityLogger(agent_name=self.name)
-
+        
+        # Log initialization status
         logger.info(f"LocationExtractorAgent initialized with {self.redis_manager.get_total_geohash_count()} geohashes")
+        
+        # Agent metadata handled by base class
+        # self.agent_id, self.description, self.capabilities are in base class
 
     async def validate_request(self, request: AgentRequest) -> bool:
         """Fast validation using simple heuristics - no LLM call needed"""
-
+        
         # Use lightweight heuristics for initial filtering
         prompt = request.prompt.lower()
-
+        
         # Quick checks that don't require LLM
         has_location_indicators = any(word in prompt for word in [
             'near', 'at', 'in', 'around', 'visiting', 'went to', 'from', 'to',
             'mall', 'airport', 'restaurant', 'hotel', 'office', 'building',
             'street', 'road', 'city', 'country', 'area', 'place'
         ])
-
+        
         # Check for coordinate patterns
-        import re
         has_coordinates = bool(re.search(r'\d+\.\d+[,\s]+\d+\.\d+', request.prompt))
-
+        
         # Check for proper nouns (potential place names) - capitalized words
         has_proper_nouns = bool(re.search(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', request.prompt))
-
+        
         # Allow through if any indicator suggests locations might be present
         # The LLM extraction will do the real validation
         should_process = has_location_indicators or has_coordinates or has_proper_nouns
-
+        
         logger.info(
             f"Fast validation: {should_process} (indicators: {has_location_indicators}, coords: {has_coordinates}, proper_nouns: {has_proper_nouns})")
-
+        
         return should_process
 
-    async def process(self, request: AgentRequest) -> AgentResponse:
-        """Process location extraction request - pure location-to-geohashes conversion"""
-
-        # Set query context for activity logging
-        query_context = request.context.get('query_context')
-        if query_context and isinstance(query_context, QueryContext):
-            self.activity_logger.set_query_context(query_context)
-
-        try:
-            # Log start
-            self.activity_logger.action("Searching for location mentions in query...")
-
-            # Single LLM call for location extraction
-            locations_data, llm_metadata = await self.location_processor.extract_locations_from_prompt(
-                request.prompt
-            )
-
-            # Extract ambiguities from metadata
-            ambiguities = llm_metadata.get('ambiguities', [])
-            
-            # If no locations found, return clean result with ambiguities
-            if not locations_data:
-                logger.info("No locations detected in prompt")
-                if ambiguities:
-                    self.activity_logger.info(f"No specific locations found, but {len(ambiguities)} ambiguous references detected")
-                else:
-                    self.activity_logger.info("No specific locations found in the query")
-                    
-                return AgentResponse(
-                    request_id=request.request_id,
-                    agent_name=self.name,
-                    status=AgentStatus.COMPLETED,
-                    result={
-                        "locations": {},
-                        "total_locations": 0,
-                        "geohashes": [],
-                        "geohash_count": 0,
-                        "ambiguities": ambiguities,
-                        "summary": f"No locations found in prompt. {len(ambiguities)} ambiguities detected." if ambiguities else "No locations found in prompt"
+    async def process_internal(self, request: AgentRequest) -> AgentResponse:
+        """
+        Core location extraction logic
+        All infrastructure concerns handled by BaseAgent
+        """
+        start_time = datetime.now()
+        
+        # Log activity
+        self.activity_logger.action("Searching for location mentions in query...")
+        
+        # Single LLM call for location extraction
+        locations_data, llm_metadata = await self.location_processor.extract_locations_from_prompt(request.prompt)
+        
+        # Extract locations from the response
+        # locations_data is a dict with keys like "location1", "location2", etc.
+        locations = []
+        if locations_data:
+            for loc_key, loc_data in locations_data.items():
+                if loc_key.startswith('location'):
+                    # Convert to simpler format for processing
+                    location = {
+                        'location_name': loc_data.get('name', ''),
+                        'type': loc_data.get('type', 'FACILITY'),
+                        'field': loc_data.get('field', 'geohash'),
+                        'value': loc_data.get('value', ''),
+                        'confidence': loc_data.get('confidence', 0.9),
+                        'geohashes': loc_data.get('total_existing_geohashes', [])
                     }
-                )
-
-            # Log locations found in user-friendly way
-            location_names = [loc_data['name'] for loc_data in locations_data.values()]
-            if len(location_names) == 1:
-                self.activity_logger.info(f"Found location: {location_names[0]}")
-            else:
-                self.activity_logger.info(f"Found {len(location_names)} locations: {', '.join(location_names[:3])}" +
-                                          (" and more..." if len(location_names) > 3 else ""))
-
-            # Store geohashes in ClickHouse if storage is available
-            query_id = request.request_id
-            
-            # Consolidate all geohashes from all locations
-            all_geohashes = []
-            total_confidence = 0.0
-            location_count = 0
-
-            for location_idx, location_data in enumerate(locations_data.values()):
-                # Handle new format with type field
-                if location_data.get('type') in ['CITY', 'EMIRATE']:
-                    # City/Emirate locations don't have geohashes
-                    total_confidence += location_data.get('confidence', 0.9)
-                    location_count += 1
-                else:
-                    # Facility locations have geohashes
-                    geohashes = location_data.get('total_existing_geohashes', [])
-                    all_geohashes.extend(geohashes)
-                    total_confidence += location_data.get('confidence', 0.9)
-                    location_count += 1
-                    
-                    # Store geohashes in ClickHouse for this facility
-                    if self.geohash_storage and geohashes:
-                        try:
-                            # Get first coordinate for center point
-                            coords = location_data.get('coordinates', [])
-                            if coords:
-                                lat = coords[0].get('lat', 0)
-                                lng = coords[0].get('lng', 0)
-                            else:
-                                lat, lng = 0, 0
-                            
-                            await self.geohash_storage.store_location_geohashes(
-                                query_id=query_id,
-                                location_index=location_idx,
-                                location_name=location_data.get('name', ''),
-                                geohashes=geohashes,
-                                latitude=lat,
-                                longitude=lng,
-                                radius_meters=location_data.get('radius_meters', 500),
-                                confidence=location_data.get('confidence', 0.9)
-                            )
-                            logger.info(f"Stored {len(geohashes)} geohashes for {location_data.get('name')}")
-                        except Exception as e:
-                            logger.error(f"Failed to store geohashes: {e}")
-
-            # Remove duplicate geohashes
-            unique_geohashes = list(set(all_geohashes))
-            avg_confidence = total_confidence / location_count if location_count > 0 else 0.0
-
-            # Log geohash mapping result
-            if unique_geohashes:
-                self.activity_logger.decision(f"Mapped to {len(unique_geohashes)} geographic areas for data retrieval")
-            else:
-                self.activity_logger.info("No matching geographic data found for these locations")
-
-            # Pure location extraction result - no database assumptions
-            result = {
-                "locations": locations_data,
-                "total_locations": len(locations_data),
-                "geohashes": unique_geohashes,
-                "geohash_count": len(unique_geohashes),
-                "ambiguities": ambiguities,
-                "average_confidence": round(avg_confidence, 2),
-                "summary": f"Extracted {len(locations_data)} locations -> {len(unique_geohashes)} geohashes (confidence: {avg_confidence:.2f}). {len(ambiguities)} ambiguities detected." if ambiguities else f"Extracted {len(locations_data)} locations -> {len(unique_geohashes)} geohashes (confidence: {avg_confidence:.2f})",
-                "processing_stats": {
-                    "llm_calls": 1,
-                    "redis_geohashes_available": self.redis_manager.get_total_geohash_count(),
-                    "extraction_method": "single_llm_call",
-                    "llm_metadata": llm_metadata  # Include for debugging
-                }
-            }
-
-            logger.info(f"Location extraction completed: {result['summary']}")
-
-            # Log training data if enabled (fire-and-forget)
-            if self.training_logger and llm_metadata.get('llm_response'):
-                # Get model config
-                model_config = {
-                    'model': getattr(self.llm_client.config, 'model', 'unknown') if hasattr(self.llm_client,
-                                                                                            'config') else 'unknown',
-                    'temperature': getattr(self.llm_client.config, 'temperature', 0.1) if hasattr(self.llm_client,
-                                                                                                  'config') else 0.1,
-                    'max_tokens': getattr(self.llm_client.config, 'max_tokens', 1000) if hasattr(self.llm_client,
-                                                                                                 'config') else 1000
-                }
-
-                # Prepare extracted params
-                extracted_params = {
-                    "locations": locations_data,
-                    "total_locations": len(locations_data),
-                    "unique_geohashes": len(unique_geohashes),
-                    "average_confidence": avg_confidence
-                }
-
-                # Log in background
-                self.training_logger.log_llm_interaction_background(
-                    session_id=request.context.get('session_id'),
-                    query_id=request.context.get('query_id', request.request_id),
-                    query_text=request.prompt,
-                    event_type="location_extraction",
-                    llm_response=llm_metadata['llm_response'],
-                    llm_start_time=llm_metadata['llm_start_time'],
-                    prompts=llm_metadata['prompts'],
-                    result=result,
-                    model_config=model_config,
-                    extracted_params=extracted_params,
-                    category="location_extraction",
-                    confidence=avg_confidence,
-                    success=bool(locations_data)
-                )
-
-            return AgentResponse(
-                request_id=request.request_id,
-                agent_name=self.name,
-                status=AgentStatus.COMPLETED,
-                result=result,
-                metadata={
-                    "agent_role": "location_extraction_only",
-                    "next_agents": ["data_correlator", "intelligence_analyzer"],
-                    "output_type": "geohash_list"
-                }
+                    # Add coordinate info if available
+                    if loc_data.get('coordinates'):
+                        coord = loc_data['coordinates'][0]  # Take first coordinate
+                        location['latitude'] = coord.get('lat')
+                        location['longitude'] = coord.get('lng')
+                    locations.append(location)
+        
+        if not locations:
+            self.activity_logger.decision("No specific locations found")
+            return self._create_success_response(
+                request=request,
+                result={
+                    "locations": [],
+                    "geohashes": [],
+                    "location_contexts": [],
+                    "extraction_status": "no_locations_found"
+                },
+                start_time=start_time
             )
-
-        except Exception as e:
-            logger.error(f"Location extraction failed: {str(e)}", exc_info=True)
-            self.activity_logger.error("Failed to extract locations", error=e)
-            raise
-
-    def load_geohashes(self, geohash_source: str, source_type: str = 'list') -> int:
-        """Load geohashes into Redis from various sources"""
-
-        try:
-            if source_type == 'list':
-                # Assume geohash_source is a list of geohashes
-                geohash_list = geohash_source if isinstance(geohash_source, list) else [geohash_source]
-                return self.redis_manager.load_geohashes_from_list(geohash_list)
-
-            elif source_type == 'file':
-                # Load from file
-                with open(geohash_source, 'r') as f:
-                    geohash_list = [line.strip() for line in f if line.strip()]
-                return self.redis_manager.load_geohashes_from_list(geohash_list)
-
-            elif source_type == 'clickhouse':
-                # Load from ClickHouse query (only for geohash loading, not querying)
-                from src.core.database.clickhouse_client import ClickHouseClient
-                ch_config = self.config_manager.get_database_config('clickhouse')
-                ch_client = ClickHouseClient(ch_config)
-
-                # Execute query to get geohashes for loading into Redis
-                result = ch_client.execute(geohash_source)
-                geohash_list = [row[0] for row in result]
-                return self.redis_manager.load_geohashes_from_list(geohash_list)
-
+        
+        self.activity_logger.info(f"Extracted {len(locations)} location(s): {', '.join([loc['location_name'] for loc in locations])}")
+        
+        # Limit locations to prevent performance issues
+        max_locations = self.config.get('max_locations', 200)
+        if len(locations) > max_locations:
+            self.activity_logger.warning(f"Found {len(locations)} locations, limiting to {max_locations}")
+            locations = locations[:max_locations]
+        
+        # Extract unique geohashes from all locations
+        all_geohashes = set()
+        enriched_locations = []
+        
+        for location in locations:
+            # Get geohashes for each location
+            location_geohashes = await self._get_geohashes_for_location(location)
+            
+            if location_geohashes:
+                all_geohashes.update(location_geohashes)
+                enriched_location = location.copy()
+                enriched_location['geohashes'] = list(location_geohashes)
+                enriched_locations.append(enriched_location)
+                
+                self.activity_logger.info(
+                    f"Location '{location['location_name']}' mapped to {len(location_geohashes)} geohash(es)"
+                )
             else:
-                raise ValueError(f"Unsupported source type: {source_type}")
+                self.activity_logger.warning(f"No geohashes found for location: {location['location_name']}")
+        
+        # Convert to sorted list
+        final_geohashes = sorted(list(all_geohashes))
+        
+        self.activity_logger.identified(
+            "location geohashes",
+            {
+                "total_locations": len(locations),
+                "matched_locations": len(enriched_locations),
+                "total_geohashes": len(final_geohashes)
+            }
+        )
+        
+        # Build response
+        result = {
+            "locations": [loc['location_name'] for loc in enriched_locations],
+            "geohashes": final_geohashes,
+            "location_contexts": enriched_locations,
+            "extraction_status": "success"
+        }
+        
+        return self._create_success_response(
+            request=request,
+            result=result,
+            start_time=start_time,
+            location_count=len(enriched_locations),
+            geohash_count=len(final_geohashes)
+        )
 
+    async def _get_geohashes_for_location(self, location: Dict[str, Any]) -> List[str]:
+        """Get geohashes for a single location"""
+        # Check if location already has geohashes (from location processor)
+        if location.get('geohashes'):
+            return location['geohashes']
+        
+        geohashes = []
+        
+        # Priority 1: If location has coordinates, find nearby geohashes
+        if location.get('latitude') and location.get('longitude'):
+            try:
+                # Get geohashes within radius
+                radius = location.get('radius_meters', self.config.get('default_radius_meters', 200))
+                nearby_geohashes = self.redis_manager.get_geohashes_in_radius(
+                    location['latitude'],
+                    location['longitude'], 
+                    radius
+                )
+                geohashes.extend(nearby_geohashes)
+            except Exception as e:
+                logger.error(f"Error finding nearby geohashes: {e}")
+        
+        # Priority 2: Use value field if it's a geohash
+        if not geohashes and location.get('value'):
+            value = location['value']
+            # Check if value looks like a geohash (7 chars alphanumeric)
+            if isinstance(value, str) and len(value) == 7 and value.isalnum():
+                geohashes.append(value)
+        
+        return geohashes
+
+    async def load_geohashes_from_db(self) -> Dict[str, Any]:
+        """Load geohashes from ClickHouse into Redis"""
+        # This method would need to be implemented based on actual ClickHouse schema
+        # For now, return a placeholder response
+        try:
+            self.activity_logger.action("Loading geohashes from Redis...")
+            
+            total_count = self.redis_manager.get_total_geohash_count()
+            
+            self.activity_logger.info(f"Redis contains {total_count} geohashes")
+            
+            return {
+                "success": True,
+                "total_geohashes": total_count,
+                "message": "Geohashes already loaded in Redis"
+            }
+            
         except Exception as e:
-            logger.error(f"Failed to load geohashes: {e}")
-            raise
+            logger.error(f"Error checking geohashes: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
