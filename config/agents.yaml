@@ -3,6 +3,10 @@ agents:
   location_extractor:
     enabled: true
     priority: 1
+    required_resources:
+      - clickhouse
+      - redis
+      - session
     max_locations: 200
     default_radius_meters: 200
     max_radius_meters: 5000
@@ -37,17 +41,21 @@ agents:
 #    correlation_threshold: 0.7
 #    max_correlations: 100
 #
-#  profile_analyzer:
-#    enabled: true
-#    use_intelligent_summary: true
-#    priority: 2
-#    max_results: 100
-#    default_limit: 50
-#    risk_thresholds:
-#      high: 0.7
-#      medium: 0.4
-#      low: 0.0
-#    cache_ttl: 1800
+  profile_analyzer:
+    enabled: true
+    use_intelligent_summary: true
+    priority: 2
+    required_resources:
+      - clickhouse
+      - llm
+      - session
+    max_results: 100
+    default_limit: 50
+    risk_thresholds:
+      high: 0.7
+      medium: 0.4
+      low: 0.0
+    cache_ttl: 1800
 #
 #  reporting:
 #    enabled: true
@@ -62,6 +70,9 @@ agents:
   query_executor:
     enabled: true
     priority: 3
+    required_resources:
+      - clickhouse
+      - session
     default_engine: clickhouse
     engines:
       clickhouse:
@@ -87,6 +98,9 @@ agents:
   time_parser:
     enabled: true
     priority: 1
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     default_time_range_days: 2
     timezone: UTC
@@ -97,21 +111,31 @@ agents:
   query_classifier:
     enabled: true
     priority: 1
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     enable_training_data: true
     cache_ttl: 300
 
-#  query_understanding:
-#    enabled: true
-#    priority: 1
-#    llm_model: openai
-#    enable_training_data: true
-#    enable_query_history: true
-#    cache_ttl: 300
+  query_understanding:
+    enabled: true
+    priority: 1
+    required_resources:
+      - redis
+      - session
+      - llm
+    llm_model: openai
+    enable_training_data: true
+    enable_query_history: true
+    cache_ttl: 300
 
   risk_filter:
     enabled: true
     priority: 1
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     enable_training_data: true
     max_retries: 2
@@ -122,6 +146,9 @@ agents:
   profile_filter:
     enabled: true
     priority: 1
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     enable_training_data: true
     max_retries: 2
@@ -132,6 +159,9 @@ agents:
   entity_annotator:
     enabled: true
     priority: 1
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     enable_training_data: true
     max_retries: 2
@@ -142,6 +172,8 @@ agents:
   query_orchestrator:
     enabled: true
     priority: 0  # Highest priority as it coordinates others
+    required_resources:
+      - session
     parallel_timeout: 30
     max_concurrent_agents: 5
     max_ambiguity_retries: 3
@@ -150,6 +182,9 @@ agents:
   unified_filter:
     enabled: true
     priority: 2
+    required_resources:
+      - llm
+      - session
     llm_model: openai
     enable_training_data: true
     max_retries: 2
@@ -160,6 +195,9 @@ agents:
   profiler:
     enabled: true
     priority: 2  # Runs after orchestrator completes
+    required_resources:
+      - clickhouse
+      - session
     default_limit: 1000
     max_limit: 10000
     enable_stats: true
