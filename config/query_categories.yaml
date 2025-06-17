@@ -1,0 +1,322 @@
+# config/query_categories.yaml
+# Query categories configuration for the Query Understanding Agent
+# This file defines all available query categories and their properties
+
+query_categories:
+  # Location-Based Queries
+  location_based:
+    location_time:
+      name: "Location Time Analysis"
+      description: "Queries about who visited specific locations at specific times"
+      examples:
+        - "Who visited Dubai Mall yesterday between 2-4 PM?"
+        - "Show everyone at the airport last week"
+        - "Find people who spent >2 hours at Burj Khalifa"
+      required_params:
+        - location
+        - time_range
+      optional_params:
+        - duration
+        - radius
+    
+    location_density:
+      name: "Location Density Analysis"
+      description: "Cluster analysis and heat map generation for locations"
+      examples:
+        - "Show crowd density at Dubai Mall today"
+        - "Generate heat map of tourist areas"
+        - "Find overcrowded locations"
+      required_params:
+        - location_or_area
+      optional_params:
+        - time_range
+        - threshold
+    
+    location_pattern:
+      name: "Location Pattern Detection"
+      description: "Identify recurring location patterns"
+      examples:
+        - "Find people who visit the same mosque every Friday"
+        - "Show regular visitors to specific malls"
+        - "Identify workplace patterns"
+      required_params:
+        - pattern_type
+      optional_params:
+        - location
+        - frequency
+        - time_window
+    
+    geofence_alert:
+      name: "Geofence Monitoring"
+      description: "Real-time boundary crossing alerts"
+      examples:
+        - "Alert when high-risk individuals enter sensitive areas"
+        - "Monitor border crossings"
+        - "Track embassy vicinity activity"
+      required_params:
+        - geofence_area
+        - alert_criteria
+      optional_params:
+        - risk_threshold
+        - real_time
+
+  # Movement-Based Queries
+  movement_based:
+    movement_tracking:
+      name: "Individual Movement Tracking"
+      description: "Track movement paths of individuals"
+      examples:
+        - "Track IMSI 424020012345678 movements today"
+        - "Show yesterday's path for phone +971501234567"
+        - "Where did this person go after the mall?"
+      required_params:
+        - identifier
+      optional_params:
+        - time_range
+        - granularity
+    
+    movement_comparison:
+      name: "Movement Comparison"
+      description: "Compare movement patterns between individuals"
+      examples:
+        - "Compare movements of these 5 IMSIs last week"
+        - "Show overlapping paths between these individuals"
+        - "When and where did these people meet?"
+      required_params:
+        - identifiers
+      optional_params:
+        - time_range
+        - overlap_threshold
+    
+    movement_anomaly:
+      name: "Movement Anomaly Detection"
+      description: "Detect unusual movement patterns"
+      examples:
+        - "Find unusual late-night movements"
+        - "Detect sudden change in movement patterns"
+        - "Identify suspicious route deviations"
+      required_params:
+        - anomaly_type
+      optional_params:
+        - baseline_period
+        - sensitivity
+
+    predictive:
+      name: "Predictive Analysis"
+      description: "Future predictions based on patterns"
+      examples:
+        - "Predict next locations for this individual"
+        - "Forecast risk score changes"
+        - "Predict crowd levels for tomorrow"
+      required_params:
+        - prediction_target
+        - prediction_horizon
+      optional_params:
+        - model_type
+        - confidence_threshold
+
+
+  # Profile-Based Queries
+  profile_based:
+    profile_search:
+      name: "Profile Search"
+      description: "Search for individuals by profile characteristics"
+      examples:
+        - "Find all Iranian males aged 25-35 with high risk scores"
+        - "Show diplomats who have crime cases"
+        - "List visitors from sanctioned countries"
+      required_params:
+        - search_criteria
+      optional_params:
+        - limit
+        - sort_by
+    
+    profile_comparison:
+      name: "Profile Comparison"
+      description: "Compare profiles of individuals or groups"
+      examples:
+        - "Compare risk profiles of Syrian vs Iranian nationals"
+        - "Show differences between these two individuals"
+        - "Compare behavior patterns of different age groups"
+      required_params:
+        - comparison_targets
+        - comparison_metrics
+      optional_params:
+        - visualization_type
+    
+    demographic_analysis:
+      name: "Demographic Analysis"
+      description: "Statistical analysis of demographic groups"
+      examples:
+        - "Age distribution of high-risk individuals"
+        - "Nationality breakdown by emirate"
+        - "Gender statistics for crime categories"
+      required_params:
+        - demographic_dimension
+      optional_params:
+        - filters
+        - grouping
+
+  # Relationship-Based Queries
+  relationship_based:
+    co_location:
+      name: "Co-location Analysis"
+      description: "Find who meets whom and where"
+      examples:
+        - "Who meets with Syrian diplomats frequently?"
+        - "Find co-locations of these high-risk individuals"
+        - "Show meeting patterns at specific locations"
+      required_params:
+        - target_entity
+      optional_params:
+        - frequency_threshold
+        - location_filter
+        - time_window
+    
+    network_analysis:
+      name: "Communication Network Analysis"
+      description: "Analyze communication networks and relationships"
+      examples:
+        - "Who communicates with both Syria and Iran?"
+        - "Show the network around this phone number"
+        - "Find communication clusters among high-risk individuals"
+      required_params:
+        - network_type
+      optional_params:
+        - depth
+        - min_connections
+        - include_metadata
+    
+    travel_correlation:
+      name: "Travel Pattern Correlation"
+      description: "Correlate travel patterns between individuals"
+      examples:
+        - "Find people who travel together frequently"
+        - "Show correlated international movements"
+        - "Identify travel companion networks"
+      required_params:
+        - correlation_type
+      optional_params:
+        - min_correlation_score
+        - time_window
+
+  # Risk/Crime-Based Queries
+  risk_crime_based:
+    risk_assessment:
+      name: "Risk Assessment Analysis"
+      description: "Analyze and assess risk levels"
+      examples:
+        - "Show risk distribution by nationality"
+        - "Analyze risk score trends over time"
+        - "Find sudden risk score increases"
+      required_params:
+        - risk_metric
+      optional_params:
+        - threshold
+        - time_range
+        - aggregation
+    
+    crime_pattern:
+      name: "Crime Pattern Analysis"
+      description: "Identify crime patterns and correlations"
+      examples:
+        - "Show crime distribution by area"
+        - "Find patterns in drug-related crimes"
+        - "Correlate crime types with demographics"
+      required_params:
+        - crime_category
+      optional_params:
+        - pattern_type
+        - correlation_factors
+    
+    threat_detection:
+      name: "Security Threat Detection"
+      description: "Identify potential security threats"
+      examples:
+        - "Detect potential terrorist cells"
+        - "Find suspicious behavior patterns"
+        - "Identify emerging threat clusters"
+      required_params:
+        - threat_type
+      optional_params:
+        - confidence_threshold
+        - include_predictions
+
+  # Geographic Analysis
+  geographic_analysis:
+    home_work_analysis:
+      name: "Home-Work Location Analysis"
+      description: "Analyze residence and workplace patterns"
+      examples:
+        - "Find people who live in Dubai but work in Sharjah"
+        - "Show abnormal home location changes"
+        - "Analyze commute patterns for nationals"
+      required_params:
+        - analysis_type
+      optional_params:
+        - location_filters
+        - anomaly_detection
+    
+    cross_border:
+      name: "Cross-Border Movement Analysis"
+      description: "Analyze international movement patterns"
+      examples:
+        - "Show frequent travelers to Iran"
+        - "Find irregular border crossings"
+        - "Analyze visa overstays"
+      required_params:
+        - border_type
+      optional_params:
+        - frequency_threshold
+        - country_filter
+    
+    emirate_flow:
+      name: "Inter-Emirate Flow Analysis"
+      description: "Analyze movement between emirates"
+      examples:
+        - "Show daily flow between Dubai and Abu Dhabi"
+        - "Find unusual inter-emirate patterns"
+        - "Analyze weekend vs weekday flows"
+      required_params:
+        - flow_type
+      optional_params:
+        - emirates
+        - time_pattern
+
+  # Special Categories
+  special:
+    unsupported_domain:
+      name: "Unsupported Domain"
+      description: "Queries not related to telecom/movement/SIGINT data"
+      examples:
+        - "What's the weather in Dubai?"
+        - "Calculate 2+2"
+        - "Write Python code for sorting"
+        - "Tell me a joke"
+        - "What's the latest news?"
+      message: "I can only help with telecom movement and security-related queries. Please ask about people movements, locations, risk analysis, or similar topics."
+    
+    general_inquiry:
+      name: "General Inquiry"
+      description: "Domain-related queries that don't fit specific categories"
+      examples:
+        - "What kind of data do you have?"
+        - "How many records are in the system?"
+        - "What can you help me with?"
+        - "Explain your capabilities"
+      required_params: []
+      optional_params: []
+
+# Category metadata for the system
+category_metadata:
+  default_confidence_threshold: 0.7
+  ambiguous_query_handler: "multi_criteria"
+  category_priority_order:
+    - location_based
+    - profile_based
+    - risk_crime_based
+    - movement_based
+    - relationship_based
+    - geographic_analysis
+    - temporal_analysis
+    - complex_queries

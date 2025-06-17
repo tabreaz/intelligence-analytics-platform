@@ -1,0 +1,173 @@
+# config/agents.yaml
+agents:
+  location_extractor:
+    enabled: true
+    priority: 1
+    max_locations: 200
+    default_radius_meters: 200
+    max_radius_meters: 5000
+    google_places:
+      api_key: ${GOOGLE_PLACES_API_KEY}
+      max_results: 15
+      timeout: 30
+    geohash_precision: 7
+    cache_ttl: 3600
+
+#  intelligence_analyzer:
+#    enabled: true
+#    priority: 2
+#    confidence_threshold: 0.5
+#    classification_levels:
+#      - UNCLASS
+#      - CONFIDENTIAL
+#      - SECRET
+#      - TOP_SECRET
+#    source_types:
+#      - SIGINT
+#      - GOVINT
+#      - HUMINT
+#      - OSINT
+#    cache_ttl: 1800
+#
+#  data_correlator:
+#    enabled: true
+#    priority: 3
+#    temporal_window_hours: 24
+#    spatial_threshold_meters: 1000
+#    correlation_threshold: 0.7
+#    max_correlations: 100
+#
+#  profile_analyzer:
+#    enabled: true
+#    use_intelligent_summary: true
+#    priority: 2
+#    max_results: 100
+#    default_limit: 50
+#    risk_thresholds:
+#      high: 0.7
+#      medium: 0.4
+#      low: 0.0
+#    cache_ttl: 1800
+#
+#  reporting:
+#    enabled: true
+#    priority: 4
+#    output_formats:
+#      - json
+#      - pdf
+#      - excel
+#    template_dir: ${REPORT_TEMPLATE_DIR:./templates}
+#    export_dir: ${REPORT_EXPORT_DIR:./exports}
+
+  query_executor:
+    enabled: true
+    priority: 3
+    default_engine: clickhouse
+    engines:
+      clickhouse:
+        enabled: true
+        database: telecom_db
+        max_memory_usage: 3000000000  # 3GB
+        max_execution_time: 60
+      spark:
+        enabled: false
+        master: local[*]
+        app_name: IntelligenceAnalytics
+      postgresql:
+        enabled: false
+      elasticsearch:
+        enabled: false
+    max_results: 10000
+    execution_timeout: 60
+    enable_query_log: true
+    cache_ttl: 300
+    llm_model: openai
+    enable_training_data: true
+
+  time_parser:
+    enabled: true
+    priority: 1
+    llm_model: openai
+    default_time_range_days: 2
+    timezone: UTC
+    enable_context: true
+    enable_training_data: true
+    cache_ttl: 300
+  
+  query_classifier:
+    enabled: true
+    priority: 1
+    llm_model: openai
+    enable_training_data: true
+    cache_ttl: 300
+
+#  query_understanding:
+#    enabled: true
+#    priority: 1
+#    llm_model: openai
+#    enable_training_data: true
+#    enable_query_history: true
+#    cache_ttl: 300
+
+  risk_filter:
+    enabled: true
+    priority: 1
+    llm_model: openai
+    enable_training_data: true
+    max_retries: 2
+    retry_delay: 1.0
+    default_confidence: 0.8
+    cache_ttl: 300
+
+  profile_filter:
+    enabled: true
+    priority: 1
+    llm_model: openai
+    enable_training_data: true
+    max_retries: 2
+    retry_delay: 1.0
+    default_confidence: 0.8
+    cache_ttl: 300
+
+  entity_annotator:
+    enabled: true
+    priority: 1
+    llm_model: openai
+    enable_training_data: true
+    max_retries: 2
+    retry_delay: 1.0
+    default_confidence: 0.85
+    cache_ttl: 300
+
+  query_orchestrator:
+    enabled: true
+    priority: 0  # Highest priority as it coordinates others
+    parallel_timeout: 30
+    max_concurrent_agents: 5
+    max_ambiguity_retries: 3
+    cache_ttl: 300
+
+  unified_filter:
+    enabled: true
+    priority: 2
+    llm_model: openai
+    enable_training_data: true
+    max_retries: 2
+    retry_delay: 1.0
+    default_confidence: 0.85
+    cache_ttl: 300
+
+  profiler:
+    enabled: true
+    priority: 2  # Runs after orchestrator completes
+    default_limit: 1000
+    max_limit: 10000
+    enable_stats: true
+    enable_query_log: true
+    cache_ttl: 600
+
+workflow:
+  max_concurrent_agents: 5
+  timeout_seconds: 300
+  retry_attempts: 3
+  retry_delay_seconds: 5

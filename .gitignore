@@ -1,0 +1,87 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Database and SQL
+sql/
+
+# Scripts
+scripts/
+
+# Tests
+test/
+tests/
+test_*.py
+analyze_test*.py
+check_schema_coverage*.py
+
+# Environment files
+.env*
+
+# Data
+data/
+
+# Logs
+logs/
+*.log
+
+# Documentation
+docs/
+
+# Run scripts
+run*.py
+
+# Database Consoles
+Database Consoles/
+
+# Extensions
+Extensions/
+
+# Docker
+Dockerfile
+docker-compose.yaml
+docker-compose.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env*
+
+# OS
+.DS_Store
+Thumbs.db

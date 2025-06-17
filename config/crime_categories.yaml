@@ -1,0 +1,245 @@
+# Crime Categories Configuration
+# This file defines crime categories by type and severity levels
+
+crime_categories:
+  drug_related:
+    severe:
+      - drug_dealing
+      - drug_trafficking
+    moderate:
+      - drug_possession
+      - drug_addiction
+    all:
+      - drug_possession
+      - drug_addiction
+      - drug_dealing
+      - drug_trafficking
+
+  violent_crimes:
+    severe:
+      - murder
+      - attempted_murder
+      - manslaughter
+      - aggravated_assault
+      - kidnapping
+      - armed_robbery
+      - sexual_assault
+      - rape
+      - child_abuse
+      - arson
+      - vehicular_manslaughter
+    moderate:
+      - assault
+      - domestic_violence
+    all:
+      - murder
+      - attempted_murder
+      - manslaughter
+      - assault
+      - aggravated_assault
+      - kidnapping
+      - armed_robbery
+      - sexual_assault
+      - rape
+      - domestic_violence
+      - child_abuse
+      - arson
+      - vehicular_manslaughter
+
+  property_crimes:
+    severe:
+      - arson
+      - counterfeiting
+    moderate:
+      - theft
+      - burglary
+      - motor_vehicle_theft
+    minor:
+      - shoplifting
+      - vandalism
+    all:
+      - theft
+      - burglary
+      - shoplifting
+      - vandalism
+      - arson
+      - motor_vehicle_theft
+      - counterfeiting
+
+  financial_crimes:
+    severe:
+      - embezzlement
+      - money_laundering
+      - counterfeiting
+    moderate:
+      - fraud
+      - tax_evasion
+      - identity_theft
+      - bribery
+      - insider_trading
+      - forgery
+    all:
+      - fraud
+      - tax_evasion
+      - embezzlement
+      - money_laundering
+      - identity_theft
+      - bribery
+      - counterfeiting
+      - insider_trading
+      - forgery
+
+  cyber_crimes:
+    severe:
+      - data_breach
+      - ransomware_attack
+    moderate:
+      - cyber_crime
+      - phishing
+      - hacking
+      - online_fraud
+    minor:
+      - cyber_bullying
+    all:
+      - cyber_crime
+      - phishing
+      - hacking
+      - data_breach
+      - cyber_bullying
+      - online_fraud
+      - ransomware_attack
+
+  traffic_crimes:
+    severe:
+      - driving_under_influence
+      - hit_and_run
+      - vehicular_manslaughter
+    moderate:
+      - reckless_driving
+    minor:
+      - traffic_violation
+      - driving_without_license
+      - illegal_parking
+      - speeding
+    all:
+      - traffic_violation
+      - reckless_driving
+      - driving_under_influence
+      - hit_and_run
+      - driving_without_license
+      - vehicular_manslaughter
+      - illegal_parking
+      - speeding
+
+  human_crimes:
+    severe:
+      - human_trafficking
+      - child_exploitation
+      - modern_slavery
+    all:
+      - human_trafficking
+      - child_exploitation
+      - modern_slavery
+
+  national_security:
+    severe:
+      - terrorism
+      - espionage
+      - war_crimes
+    all:
+      - terrorism
+      - espionage
+      - war_crimes
+
+  immigration_crimes:
+    severe:
+      - passport_forgery
+      - smuggling
+    moderate:
+      - illegal_entry
+    minor:
+      - visa_violation
+    all:
+      - visa_violation
+      - illegal_entry
+      - passport_forgery
+      - smuggling
+
+  organized_crime:
+    - drug_trafficking
+    - human_trafficking
+    - money_laundering
+    - smuggling
+    - counterfeiting
+
+# Severity levels - comprehensive list of all crimes by severity
+severity_levels:
+  severe:
+    - drug_dealing
+    - drug_trafficking
+    - murder
+    - attempted_murder
+    - manslaughter
+    - aggravated_assault
+    - kidnapping
+    - armed_robbery
+    - sexual_assault
+    - rape
+    - child_abuse
+    - arson
+    - driving_under_influence
+    - hit_and_run
+    - vehicular_manslaughter
+    - embezzlement
+    - money_laundering
+    - counterfeiting
+    - data_breach
+    - ransomware_attack
+    - human_trafficking
+    - child_exploitation
+    - modern_slavery
+    - terrorism
+    - espionage
+    - war_crimes
+    - passport_forgery
+    - smuggling
+    - obstruction_of_justice
+    - escape_from_custody
+    - possession_of_illegal_weapon
+
+  moderate:
+    - drug_possession
+    - drug_addiction
+    - assault
+    - domestic_violence
+    - theft
+    - burglary
+    - motor_vehicle_theft
+    - reckless_driving
+    - fraud
+    - tax_evasion
+    - identity_theft
+    - bribery
+    - insider_trading
+    - forgery
+    - cyber_crime
+    - phishing
+    - hacking
+    - online_fraud
+    - illegal_entry
+    - contempt_of_court
+    - perjury
+    - conspiracy
+    - illegal_gambling
+
+  minor:
+    - shoplifting
+    - vandalism
+    - traffic_violation
+    - driving_without_license
+    - illegal_parking
+    - speeding
+    - cyber_bullying
+    - visa_violation
+    - public_nuisance
+    - disorderly_conduct

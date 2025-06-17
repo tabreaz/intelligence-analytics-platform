@@ -1,0 +1,343 @@
+# Field aliases configuration for mapping various field name variations to canonical database column names
+# This helps normalize different ways users and LLMs might refer to the same field
+
+field_aliases:
+  # Identity fields
+  imsi:
+    - IMSI
+    - imsi_number
+    - sim_id
+    - sim_number
+    - subscriber_id
+  
+  phone_no:
+    - phone
+    - phones
+    - phone_number
+    - phone_numbers
+    - mobile
+    - mobile_number
+    - mobile_no
+    - msisdn
+    - MSISDN
+    - contact
+    - contact_number
+    - telephone
+    - tel
+    - cell
+    - cellphone
+    - cell_number
+  
+  uid:
+    - UID
+    - user_id
+    - userid
+    - unique_id
+    - unique_identifier
+    - identifier
+  
+  eid:
+    - EID
+    - emirates_id
+    - emirate_id
+    - emirates_ID
+    - national_id
+    - identity_card
+    - id_card
+    - id_number
+  
+  # Demographics
+  fullname_en:
+    - name
+    - full_name
+    - fullname
+    - person_name
+    - individual_name
+    - complete_name
+    - name_english
+    - name_en
+  
+  gender_en:
+    - gender
+    - sex
+    - male_female
+    - m_f
+  
+  date_of_birth:
+    - dob
+    - DOB
+    - birth_date
+    - birthdate
+    - born
+    - birth
+  
+  age:
+    - age_years
+    - current_age
+    - person_age
+  
+  age_group:
+    - age_range
+    - age_bracket
+    - age_category
+    - age_band
+  
+  marital_status_en:
+    - marital_status
+    - marriage_status
+    - married
+    - relationship_status
+    - civil_status
+  
+  # Nationality & Residency
+  nationality_code:
+    - nationality
+    - country_code
+    - citizen_of
+    - citizenship
+    - passport_country
+    - country
+    - origin_country
+  
+  nationality_name_en:
+    - nationality_name
+    - country_name
+    - citizenship_name
+  
+  previous_nationality_code:
+    - previous_nationality
+    - former_nationality
+    - old_nationality
+    - previous_citizenship
+    - former_citizenship
+    - original_nationality
+  
+  previous_nationality_en:
+    - previous_nationality_name
+    - former_nationality_name
+    - old_nationality_name
+  
+  residency_status:
+    - residence_status
+    - resident_status
+    - visa_status
+    - immigration_status
+    - legal_status
+    - stay_status
+  
+  dwell_duration_tag:
+    - dwell_duration
+    - residence_duration
+    - stay_duration
+    - time_in_country
+    - years_in_uae
+    - residence_period
+  
+  # Travel
+  last_travelled_country_code:
+    - last_travel_country
+    - last_visited_country
+    - recent_travel_country
+    - last_trip_country
+    - last_country_visited
+  
+  travelled_country_codes:
+    - travel_countries
+    - visited_countries
+    - countries_visited
+    - travel_history
+    - country_visits
+    - travelled_to
+    - been_to
+  
+  communicated_country_codes:
+    - call_countries
+    - called_countries
+    - communication_countries
+    - contact_countries
+    - phone_call_countries
+    - messaged_countries
+  
+  # Location
+  home_city:
+    - residence_city
+    - residential_city
+    - living_city
+    - city_of_residence
+    - home_town
+    - lives_in
+    - residing_city
+  
+  home_location:
+    - home_address
+    - residential_location
+    - residence_location
+    - home_geohash
+    - living_location
+    - home_coordinates
+  
+  work_location:
+    - office_location
+    - workplace_location
+    - work_address
+    - office_address
+    - employment_location
+    - job_location
+    - work_geohash
+  
+  # Work & Sponsorship
+  latest_sponsor_name_en:
+    - sponsor
+    - sponsor_name
+    - sponsoring_company
+    - employer
+    - company
+    - organization
+    - employer_name
+    - company_name
+    - kafeel
+  
+  latest_job_title_en:
+    - job_title
+    - job
+    - occupation
+    - profession
+    - position
+    - role
+    - job_role
+    - work_title
+    - employment_title
+    - career
+    - designation
+  
+  # Criminal & Investigation
+  has_investigation_case:
+    - investigation_case
+    - under_investigation
+    - investigation_flag
+    - has_investigation
+    - investigation_status
+  
+  has_crime_case:
+    - crime_case
+    - criminal_case
+    - has_crime
+    - criminal_record
+    - crime_flag
+    - criminal_flag
+    - has_criminal_case
+  
+  is_in_prison:
+    - in_prison
+    - imprisoned
+    - incarcerated
+    - jailed
+    - in_jail
+    - detention
+    - detained
+  
+  crime_categories_en:
+    - crime_types
+    - crime_categories
+    - criminal_categories
+    - offense_types
+    - crime_category
+  
+  crime_sub_categories_en:
+    - crime_subcategories
+    - crime_sub_types
+    - offense_sub_types
+    - criminal_subcategories
+  
+  is_diplomat:
+    - diplomat
+    - diplomatic_status
+    - has_diplomatic_status
+    - diplomatic_immunity
+    - embassy_staff
+    - consular_staff
+  
+  # Risk Scores
+  drug_addict_score:
+    - drug_addiction_score
+    - addiction_score
+    - substance_abuse_score
+    - narcotics_score
+  
+  drug_dealing_score:
+    - drug_dealer_score
+    - drug_trade_score
+    - narcotics_dealing_score
+    - drug_trafficking_score
+  
+  murder_score:
+    - homicide_score
+    - killing_score
+    - murder_risk_score
+  
+  risk_score:
+    - threat_score
+    - danger_score
+    - security_risk_score
+    - overall_risk_score
+    - risk_level
+    - threat_level
+  
+  # Risk Rules
+  drug_addict_rules:
+    - addiction_rules
+    - drug_addiction_indicators
+    - substance_abuse_rules
+  
+  drug_dealing_rules:
+    - drug_dealer_rules
+    - drug_trade_rules
+    - trafficking_rules
+  
+  murder_rules:
+    - homicide_rules
+    - murder_indicators
+    - killing_rules
+  
+  risk_rules:
+    - risk_indicators
+    - threat_rules
+    - danger_rules
+    - risk_factors
+  
+  # Lifestyle
+  applications_used:
+    - apps
+    - apps_used
+    - applications
+    - mobile_apps
+    - app_usage
+    - software_used
+    - programs_used
+    - app_list
+  
+  driving_license_type:
+    - driving_license
+    - driver_license
+    - license_type
+    - driving_licenses
+    - vehicle_license
+    - license_types
+    - driving_permit
+
+# Special handling notes
+special_handling:
+  # Fields that might be mentioned but don't exist in schema
+  non_existent_fields:
+    - salary
+    - income
+    - wage
+    - earnings
+    - pay
+    - compensation
+    - email
+    - email_address
+    - address
+    - street_address
+    - passport_number
+    - passport_no

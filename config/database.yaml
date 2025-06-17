@@ -1,0 +1,36 @@
+# config/database.yaml
+databases:
+  clickhouse:
+    host: ${CLICKHOUSE_HOST:localhost}
+    port: ${CLICKHOUSE_PORT:8123}
+    user: ${CLICKHOUSE_USER:}
+    password: ${CLICKHOUSE_PASSWORD:}
+    database: ${CLICKHOUSE_DB:telecom_db}
+    secure: ${CLICKHOUSE_SECURE:false}
+    compression: true
+    pool_size: 10
+    timeout: 30
+
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    db: ${REDIS_DB:0}
+    password: ${REDIS_PASSWORD:}
+    ssl: ${REDIS_SSL:false}
+    pool_size: 20
+    timeout: 10
+    retry_on_timeout: true
+
+  postgresql:
+    host: ${POSTGRES_HOST:localhost}
+    port: ${POSTGRES_PORT:5432}
+    user: ${POSTGRES_USER:tabreaz}
+    password: ${POSTGRES_PASSWORD:admin}
+    database: ${POSTGRES_DB:sigint}
+    pool_size: 10
+    min_pool_size: 5
+    max_pool_size: 20
+    timeout: 60
+    command_timeout: 60
+    ssl: ${POSTGRES_SSL:false}
+

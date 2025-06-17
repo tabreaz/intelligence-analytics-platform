@@ -1,0 +1,76 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+  detailed:
+    format: '%(asctime)s [%(levelname)s] %(name)s [%(filename)s:%(lineno)d] - %(message)s'
+  security:
+    format: '%(asctime)s [SECURITY] [%(levelname)s] %(name)s: %(message)s'
+  json_only:
+    format: '%(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: standard
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/app.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+
+  security:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: security
+    filename: logs/security.log
+    maxBytes: 10485760
+    backupCount: 10
+
+  error:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: logs/error.log
+    maxBytes: 10485760
+    backupCount: 5
+
+  annotated_queries:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json_only
+    filename: logs/annotated_queries.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+
+loggers:
+  agents:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+
+  security:
+    level: INFO
+    handlers: [console, security]
+    propagate: false
+
+  database:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  annotated_queries:
+    level: INFO
+    handlers: [annotated_queries]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console, file, error]

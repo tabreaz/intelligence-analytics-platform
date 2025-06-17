@@ -1,0 +1,25 @@
+# config/llm_models.yaml
+llm_providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    base_url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    model: ${OPENAI_MODEL:gpt-4}
+    max_tokens: 4192
+    temperature: 0.1
+    timeout: 60
+
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
+    base_url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+    model: ${ANTHROPIC_MODEL:claude-3-sonnet-20240229}
+    max_tokens: 4000
+    temperature: 0.1
+    timeout: 60
+
+  local:
+    enabled: ${LOCAL_LLM_ENABLED:false}
+    base_url: ${LOCAL_LLM_URL:http://localhost:11434}
+    model: ${LOCAL_LLM_MODEL:llama2}
+    timeout: 120
+
+default_provider: ${DEFAULT_LLM_PROVIDER:openai}
