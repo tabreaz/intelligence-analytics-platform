@@ -1,9 +1,9 @@
-# src/agents/risk_filter/response_parser.py
+# src/agents/risk_filter/response_parser_enhanced.py
 """
-Response parser for Risk Filter Agent
+Enhanced Response parser for Risk Filter Agent that handles filter_tree format
 """
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 
 from .category_mapper import CategoryMapper
 from .constants import MAX_RESPONSE_LOG_LENGTH
@@ -14,10 +14,14 @@ logger = get_logger(__name__)
 
 
 class RiskFilterResponseParser:
-    """Parses LLM responses for risk filter extraction"""
+    """Parses LLM responses for risk filter extraction - supports both formats"""
 
     def parse(self, response: str) -> RiskFilterResult:
         """Parse LLM response into RiskFilterResult
+        
+        Supports both formats:
+        1. Old format: { "inclusions": {...}, "exclusions": {...} }
+        2. New format: { "filter_tree": {...}, "exclusions": {...} }
         
         Args:
             response: Raw LLM response string
@@ -40,16 +44,25 @@ class RiskFilterResponseParser:
             if 'reasoning' in data:
                 result.raw_extractions['reasoning'] = data['reasoning']
 
-            # Process inclusions
-            if 'inclusions' in data:
-                self._process_inclusions(data['inclusions'], result)
+            # Check which format we have
+            if 'filter_tree' in data:
+                # New format with filter_tree
+                self._process_filter_tree(data.get('filter_tree', {}), result, is_exclusion=False)
+                if 'exclusions' in data:
+                    self._process_filter_tree(data.get('exclusions', {}), result, is_exclusion=True)
+            else:
+                # Old format with inclusions/exclusions
+                if 'inclusions' in data:
+                    self._process_inclusions(data['inclusions'], result)
+                if 'exclusions' in data:
+                    self._process_exclusions(data['exclusions'], result)
 
-            # Process exclusions
-            if 'exclusions' in data:
-                self._process_exclusions(data['exclusions'], result)
-
-            # Set confidence based on extraction success
-            result.confidence = self._calculate_confidence(result)
+            # Extract confidence if provided
+            if 'confidence' in data:
+                result.confidence = float(data['confidence'])
+            else:
+                # Set confidence based on extraction success
+                result.confidence = self._calculate_confidence(result)
 
             # Store raw extractions for debugging  
             result.raw_extractions['llm_response'] = data
@@ -65,9 +78,82 @@ class RiskFilterResponseParser:
 
         return result
 
-    def _process_inclusions(self, inclusions: Dict[str, Any], result: RiskFilterResult) -> None:
-        """Process inclusion filters"""
+    def _process_filter_tree(self, tree: Union[Dict, List], result: RiskFilterResult, is_exclusion: bool = False) -> None:
+        """Process filter tree structure recursively"""
+        if not tree:
+            return
+            
+        # Handle leaf nodes (actual filter conditions)
+        if 'field' in tree and 'operator' in tree and 'value' in tree:
+            self._process_filter_node(tree, result, is_exclusion)
+            return
+            
+        # Handle logical operators
+        if 'AND' in tree:
+            for child in tree['AND']:
+                self._process_filter_tree(child, result, is_exclusion)
+        elif 'OR' in tree:
+            # For OR conditions, we process all branches
+            # Note: The current RiskFilterResult structure doesn't support complex OR logic,
+            # so we just extract all conditions
+            for child in tree['OR']:
+                self._process_filter_tree(child, result, is_exclusion)
+        else:
+            # Direct filter object
+            self._process_filter_node(tree, result, is_exclusion)
 
+    def _process_filter_node(self, node: Dict[str, Any], result: RiskFilterResult, is_exclusion: bool) -> None:
+        """Process a single filter node"""
+        field = node.get('field', '')
+        operator = node.get('operator', '=')
+        value = node.get('value')
+        
+        # Determine field type and process accordingly
+        if field in ['risk_score', 'drug_dealing_score', 'drug_addict_score', 'murder_score']:
+            # Score filter
+            # Handle BETWEEN operator where value might be a list [min, max]
+            if operator == 'BETWEEN' and isinstance(value, list) and len(value) == 2:
+                score_filter = ScoreFilter(
+                    field=field,
+                    operator=OperatorType(operator),
+                    value=float(value[0]),
+                    value2=float(value[1])
+                )
+            else:
+                score_filter = ScoreFilter(
+                    field=field,
+                    operator=OperatorType(operator),
+                    value=float(value),
+                    value2=float(node.get('value2')) if 'value2' in node else None
+                )
+            
+            if is_exclusion:
+                result.exclude_scores[field] = score_filter
+            else:
+                result.risk_scores[field] = score_filter
+                
+        elif field in ['has_crime_case', 'has_investigation_case', 'is_in_prison', 'is_diplomat']:
+            # Boolean flag
+            if is_exclusion:
+                result.exclude_flags[field] = bool(value)
+            else:
+                result.flags[field] = bool(value)
+                
+        elif field == 'crime_categories_en':
+            # Crime categories
+            if not result.crime_categories:
+                result.crime_categories = CategoryFilter()
+                
+            categories = value if isinstance(value, list) else [value]
+            
+            if is_exclusion:
+                result.crime_categories.exclude.extend(categories)
+            else:
+                result.crime_categories.include.extend(categories)
+
+    def _process_inclusions(self, inclusions: Dict[str, Any], result: RiskFilterResult) -> None:
+        """Process inclusion filters (old format)"""
+        
         # Process risk scores
         if 'risk_scores' in inclusions and inclusions['risk_scores']:
             for field, score_data in inclusions['risk_scores'].items():
@@ -84,8 +170,8 @@ class RiskFilterResponseParser:
             result.crime_categories = self._parse_crime_categories(inclusions['crime_categories'])
 
     def _process_exclusions(self, exclusions: Dict[str, Any], result: RiskFilterResult) -> None:
-        """Process exclusion filters"""
-
+        """Process exclusion filters (old format)"""
+        
         # Process excluded risk scores
         if 'risk_scores' in exclusions and exclusions['risk_scores']:
             for field, score_data in exclusions['risk_scores'].items():
@@ -160,7 +246,7 @@ class RiskFilterResponseParser:
 
     def _calculate_confidence(self, result: RiskFilterResult) -> float:
         """Calculate confidence score based on extraction success"""
-
+        
         # Start with base confidence
         confidence = 0.5
 
