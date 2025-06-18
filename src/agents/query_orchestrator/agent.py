@@ -1,6 +1,7 @@
 # src/agents/query_orchestrator/agent.py
 """
 Query Orchestrator Agent - Coordinates all other agents for query processing
+Modernized version using BaseAgent with resource management
 """
 import asyncio
 from datetime import datetime
@@ -8,12 +9,8 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from .constants import AGENT_MAPPING, PARALLEL_TIMEOUT_SECONDS
 from .models import OrchestratorResult, AgentResult, OrchestratorStatus
-from .result_merger import ResultMerger
 from ..base_agent import BaseAgent, AgentResponse, AgentStatus, AgentRequest
-from ...core.activity_logger import ActivityLogger
-from ...core.config_manager import ConfigManager
 from ...core.logger import get_logger
-from ...core.session_manager_models import QueryContext as QueryContextModel
 
 logger = get_logger(__name__)
 
@@ -21,53 +18,44 @@ logger = get_logger(__name__)
 class QueryOrchestratorAgent(BaseAgent):
     """Orchestrates query processing across multiple agents"""
 
-    def __init__(self, name: str, config: dict, config_manager: ConfigManager,
-                 agent_manager=None, session_manager=None):
+    def __init__(self, name: str, config: dict, resource_manager, agent_manager=None):
         """
-        Initialize Query Orchestrator Agent
+        Initialize Query Orchestrator Agent with resource management
         
         Args:
+            name: Agent name
+            config: Agent configuration
+            resource_manager: Centralized resource manager
             agent_manager: AgentManager instance for accessing other agents
         """
-        super().__init__(name, config)
-        self.config_manager = config_manager
-        self.session_manager = session_manager
+        super().__init__(name, config, resource_manager)
+        
+        # Store agent manager for accessing other agents
         self.agent_manager = agent_manager
 
-        # Agent properties
-        self.agent_id = "query_orchestrator"
-        self.description = "Orchestrates query processing across all agents"
-        self.capabilities = [
-            "query_classification",
-            "ambiguity_resolution",
-            "parallel_agent_execution",
-            "result_merging",
-            "deduplication"
-        ]
-
-        # Initialize activity logger
-        self.activity_logger = ActivityLogger(agent_name=self.name)
-
+        # Agent metadata handled by base class
+        # self.agent_id, self.description, self.capabilities are in base class
+        
         # Cache for initialized agents
         self._agent_cache = {}
         
         # Simple query history for context (session_id -> list of classification results)
         self._query_history = {}
 
-    async def process(self, request: AgentRequest) -> AgentResponse:
+    async def validate_request(self, request: AgentRequest) -> bool:
+        """Query orchestrator can handle any request"""
+        return True
+
+    async def process_internal(self, request: AgentRequest) -> AgentResponse:
         """
-        Process request by orchestrating multiple agents
+        Core orchestration logic
+        All infrastructure concerns handled by BaseAgent
         """
         start_time = datetime.now()
         result = OrchestratorResult()
 
         try:
-            # Set query context for activity logger
-            query_context = request.context.get('query_context') if hasattr(request, 'context') and isinstance(
-                request.context, dict) else None
-            if query_context and isinstance(query_context, QueryContextModel):
-                self.activity_logger.set_query_context(query_context)
-
+            # Log activity
             self.activity_logger.action("Starting query orchestration")
 
             # Get session_id for history tracking
@@ -244,25 +232,25 @@ class QueryOrchestratorAgent(BaseAgent):
         """Execute multiple agents in parallel"""
         results = {}
 
-        async def run_agent(agent_name: str, request: AgentRequest) -> Tuple[str, AgentResult]:
+        async def run_agent(agent_type: str, request: AgentRequest) -> Tuple[str, AgentResult]:
             """Run a single agent and return result"""
             start_time = datetime.now()
 
             try:
-                agent = await self._get_agent(agent_name)
+                agent = await self._get_agent(agent_type)
                 if not agent:
-                    return agent_name, AgentResult(
-                        agent_name=agent_name,
+                    return agent_type, AgentResult(
+                        agent_name=agent_type,
                         status="failed",
                         result={},
                         execution_time=0.0,
-                        error=f"Agent {agent_name} not available"
+                        error=f"Agent {agent_type} not available"
                     )
 
                 response = await agent.process(request)
 
-                return agent_name, AgentResult(
-                    agent_name=agent_name,
+                return agent_type, AgentResult(
+                    agent_name=agent_type,
                     status=response.status.value,
                     result=response.result,
                     execution_time=response.execution_time,
@@ -270,9 +258,9 @@ class QueryOrchestratorAgent(BaseAgent):
                 )
 
             except Exception as e:
-                logger.error(f"Error running agent {agent_name}: {e}")
-                return agent_name, AgentResult(
-                    agent_name=agent_name,
+                logger.error(f"Error running agent {agent_type}: {e}")
+                return agent_type, AgentResult(
+                    agent_name=agent_type,
                     status="failed",
                     result={},
                     execution_time=(datetime.now() - start_time).total_seconds(),
@@ -361,11 +349,6 @@ class QueryOrchestratorAgent(BaseAgent):
 
         logger.warning(f"Agent {agent_name} not found")
         return None
-
-    async def validate_request(self, request: AgentRequest) -> bool:
-        """Validate if the agent can handle this request"""
-        # Orchestrator can handle any query
-        return True
     
     def _build_context_aware_request(self, request: AgentRequest, session_id: str) -> AgentRequest:
         """Build request with previous query context for classifier"""

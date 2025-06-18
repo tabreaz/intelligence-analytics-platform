@@ -1,5 +1,6 @@
 """
 Query Executor Agent - Main agent implementation
+Modernized version using BaseAgent with resource management
 """
 import time
 import logging
@@ -26,8 +27,9 @@ class QueryExecutorAgent(BaseAgent):
     - Execute queries (optional)
     """
     
-    def __init__(self, name: str, config: Dict[str, Any], config_manager=None):
-        super().__init__(name, config)
+    def __init__(self, name: str, config: Dict[str, Any], resource_manager):
+        """Initialize with resource management"""
+        super().__init__(name, config, resource_manager)
         
         # Initialize query engines
         self.engines = self._initialize_engines()
@@ -36,6 +38,9 @@ class QueryExecutorAgent(BaseAgent):
         self.default_engine = EngineType(
             self.config.get('default_engine', 'clickhouse')
         )
+        
+        # Agent metadata handled by base class
+        # self.agent_id, self.description, self.capabilities are in base class
     
     async def validate_request(self, request: AgentRequest) -> bool:
         """Validate the request has required context"""
@@ -62,8 +67,11 @@ class QueryExecutorAgent(BaseAgent):
         
         return engines
     
-    async def process(self, request: AgentRequest) -> AgentResponse:
-        """Process query generation request"""
+    async def process_internal(self, request: AgentRequest) -> AgentResponse:
+        """
+        Core query execution logic
+        All infrastructure concerns handled by BaseAgent
+        """
         start_time = time.time()
         
         try:

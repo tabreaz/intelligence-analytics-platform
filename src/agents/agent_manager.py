@@ -14,8 +14,9 @@ logger = get_logger(__name__)
 class AgentManager:
     """Manages all intelligence agents and workflows"""
 
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager, resource_manager=None):
         self.config_manager = config_manager
+        self.resource_manager = resource_manager
         self.agents: Dict[str, BaseAgent] = {}
         self.workflow_config = config_manager.get_workflow_config()
         self._initialize_agents()
@@ -58,12 +59,24 @@ class AgentManager:
             try:
                 agent_config = self.config_manager.get_agent_config(agent_name)
                 if agent_config.get('enabled', False) and agent_class != PlaceholderAgent:
-                    # Special handling for query_orchestrator which needs agent_manager
-                    if agent_name == 'query_orchestrator':
-                        agent = agent_class(agent_name, agent_config, self.config_manager, 
-                                          agent_manager=self)
+                    # Check if agent has been modernized to use resource_manager
+                    modernized_agents = [
+                        'time_parser', 'risk_filter', 'profile_filter', 'location_extractor',
+                        'query_classifier', 'entity_annotator', 'unified_filter', 
+                        'query_orchestrator', 'query_executor'
+                    ]
+                    
+                    if agent_name in modernized_agents and self.resource_manager:
+                        # Modernized agents use resource_manager
+                        if agent_name == 'query_orchestrator':
+                            agent = agent_class(agent_name, agent_config, self.resource_manager, 
+                                              agent_manager=self)
+                        else:
+                            agent = agent_class(agent_name, agent_config, self.resource_manager)
                     else:
+                        # Legacy agents still use config_manager
                         agent = agent_class(agent_name, agent_config, self.config_manager)
+                    
                     self.agents[agent_name] = agent
                     logger.info(f"Initialized agent: {agent_name}")
                 elif agent_class == PlaceholderAgent:
