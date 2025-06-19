@@ -16,6 +16,7 @@ from .templates.movement_pattern_prompt import MOVEMENT_PATTERN_PROMPT
 from .utils import parse_json_response
 from ..base_agent import BaseAgent, AgentResponse, AgentRequest
 from ...core.logger import get_logger
+from ...core.location_resolver import LocationResolver
 
 logger = get_logger(__name__)
 
@@ -30,6 +31,9 @@ class MovementAgentV2(BaseAgent):
     def __init__(self, name: str, config: dict, resource_manager):
         """Initialize with agent-specific components only"""
         super().__init__(name, config, resource_manager)
+        
+        # Initialize shared location resolver
+        self.location_resolver = LocationResolver(resource_manager, config)
         
         # Agent-specific components
         self.response_parser = MovementResponseParser()
@@ -453,6 +457,46 @@ class MovementAgentV2(BaseAgent):
             result.raw_extractions['parsed_model'] = parsed_result
             
         return result
+    
+    async def resolve_locations(self, location_names: list[str]) -> Dict[str, list[str]]:
+        """
+        Resolve location names to geohashes using shared LocationResolver
+        
+        Args:
+            location_names: List of location names to resolve
+            
+        Returns:
+            Dict mapping location names to list of geohashes
+        """
+        location_to_geohashes = {}
+        
+        for name in location_names:
+            try:
+                # Resolve location using shared resolver
+                resolved_locations = self.location_resolver.resolve_location(name)
+                
+                # Collect all geohashes from all resolved locations
+                all_geohashes = []
+                for location in resolved_locations:
+                    if location.existing_geohashes:
+                        all_geohashes.extend(location.existing_geohashes)
+                
+                # Remove duplicates
+                unique_geohashes = list(set(all_geohashes))
+                location_to_geohashes[name] = unique_geohashes
+                
+                if unique_geohashes:
+                    self.activity_logger.info(
+                        f"Resolved '{name}' to {len(unique_geohashes)} geohash(es)"
+                    )
+                else:
+                    self.activity_logger.warning(f"No geohashes found for location: {name}")
+                    
+            except Exception as e:
+                logger.error(f"Error resolving location '{name}': {e}")
+                location_to_geohashes[name] = []
+        
+        return location_to_geohashes
 
     def _enhance_prompt_with_schema(self, user_prompt: str) -> str:
         """Add schema hint to prompt for retry"""

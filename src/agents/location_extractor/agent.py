@@ -12,6 +12,7 @@ from .location_processor import LocationProcessor
 from .redis_manager import RedisGeohashManager
 from ..base_agent import BaseAgent, AgentResponse, AgentRequest
 from ...core.logger import get_logger
+from ...core.location_resolver import LocationResolver
 
 logger = get_logger(__name__)
 
@@ -23,8 +24,10 @@ class LocationExtractorAgent(BaseAgent):
         """Initialize with agent-specific components only"""
         super().__init__(name, config, resource_manager)
         
-        # Agent-specific components
-        # Initialize Redis manager using resource from resource_manager
+        # Initialize shared location resolver
+        self.location_resolver = LocationResolver(resource_manager, config)
+        
+        # Keep RedisGeohashManager for backward compatibility but use shared Redis client
         redis_client = resource_manager.get_redis_client()
         self.redis_manager = RedisGeohashManager({'client': redis_client})
         
