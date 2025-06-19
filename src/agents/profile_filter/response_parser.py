@@ -41,6 +41,26 @@ class ProfileFilterResponseParser:
             # Extract reasoning
             if 'reasoning' in data:
                 result.raw_extractions['reasoning'] = data['reasoning']
+                
+            # Extract analytics fields
+            if 'select' in data and isinstance(data['select'], list):
+                result.select = data['select']
+                
+            if 'group_by' in data and isinstance(data['group_by'], list):
+                result.group_by = data['group_by']
+                
+            if 'having' in data and isinstance(data['having'], list):
+                result.having = data['having']
+                
+            if 'order_by' in data and isinstance(data['order_by'], list):
+                result.order_by = data['order_by']
+                
+            if 'limit' in data and isinstance(data['limit'], (int, float)):
+                result.limit = int(data['limit'])
+                
+            # Extract movement filter flag
+            if 'has_movement_filter' in data:
+                result.has_movement_filter = bool(data['has_movement_filter'])
 
             # Extract confidence
             result.confidence = float(data.get('confidence', 0.8))

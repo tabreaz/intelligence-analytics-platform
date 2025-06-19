@@ -13,6 +13,16 @@ class ProfileFilterResult:
     filter_tree: Dict[str, Any] = field(default_factory=dict)
     exclusions: Dict[str, Any] = field(default_factory=dict)  # Optional exclusions tree
     ambiguities: List[Dict[str, Any]] = field(default_factory=list)
+    
+    # Analytics fields (for GROUP BY, aggregations, etc.)
+    select: List[Dict[str, Any]] = field(default_factory=list)  # Fields and aggregations to select
+    group_by: List[str] = field(default_factory=list)  # Fields to group by
+    having: List[Dict[str, Any]] = field(default_factory=list)  # Having conditions
+    order_by: List[Dict[str, Any]] = field(default_factory=list)  # Order by fields
+    limit: Optional[int] = None  # Result limit
+    
+    # Movement detection
+    has_movement_filter: bool = False
 
     # Metadata
     confidence: float = 0.0
@@ -28,8 +38,21 @@ class ProfileFilterResult:
             "ambiguities": self.ambiguities,
             "confidence": self.confidence,
             "extraction_method": self.extraction_method,
-            "validation_warnings": self.validation_warnings
+            "validation_warnings": self.validation_warnings,
+            "has_movement_filter": self.has_movement_filter
         }
+        
+        # Include analytics fields if present
+        if self.select:
+            result['select'] = self.select
+        if self.group_by:
+            result['group_by'] = self.group_by
+        if self.having:
+            result['having'] = self.having
+        if self.order_by:
+            result['order_by'] = self.order_by
+        if self.limit is not None:
+            result['limit'] = self.limit
 
         # Include reasoning if available
         if self.raw_extractions.get('reasoning'):

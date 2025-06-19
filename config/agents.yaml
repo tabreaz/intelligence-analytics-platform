@@ -205,6 +205,23 @@ agents:
     enable_query_log: true
     cache_ttl: 600
 
+  movement:
+    enabled: true
+    priority: 1
+    required_resources:
+      - llm
+      - session
+    default_radius_meters: 1000
+    default_time_window_days: 7
+    default_pattern_window_days: 30
+    default_minimum_overlap_minutes: 30
+    default_match_granularity: "geohash7"
+    enable_training_data: true
+    max_retries: 2
+    retry_delay: 1.0
+    default_confidence: 0.85
+    cache_ttl: 300
+
 workflow:
   max_concurrent_agents: 5
   timeout_seconds: 300
