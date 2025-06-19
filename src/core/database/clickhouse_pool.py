@@ -138,6 +138,27 @@ class ClickHouseConnectionPool:
             logger.debug(f"Query returned {len(result.result_rows)} rows")
             return result.result_rows
     
+    async def insert_async(self, table: str, data: List[dict], column_names: List[str] = None):
+        """
+        Insert data into table using a pooled connection
+        
+        Args:
+            table: Table name
+            data: List of dictionaries to insert
+            column_names: Optional column names
+        """
+        async with self.get_connection() as conn:
+            logger.debug(f"Inserting {len(data)} rows into {table}")
+            
+            # Run the synchronous insert in a thread to avoid blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: conn.insert(table, data, column_names=column_names) if column_names else conn.insert(table, data)
+            )
+            
+            logger.info(f"Inserted {len(data)} rows into {table}")
+    
     def close(self):
         """Close all connections in the pool"""
         self._closed = True

@@ -78,19 +78,49 @@ class ClickHouseClient:
             raise
 
     def insert(self, table: str, data: List[dict], column_names: List[str] = None):
-        """Insert data into table"""
+        """Insert data into table (synchronous wrapper)"""
         try:
-            if column_names:
-                self.client.insert(table, data, column_names=column_names)
+            if self.use_pool and self._pool:
+                # For pool mode, we need to use async
+                # Create a new event loop if not in async context
+                try:
+                    loop = asyncio.get_running_loop()
+                    # We're already in an async context - this shouldn't happen
+                    # for a sync method, but handle it gracefully
+                    raise RuntimeError("Cannot call synchronous insert from async context when using pool")
+                except RuntimeError:
+                    # No event loop running - create one for this operation
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._insert_async_internal(table, data, column_names))
+                    finally:
+                        loop.close()
+                        asyncio.set_event_loop(None)
+            elif self.client:
+                # Use single connection (synchronous)
+                if column_names:
+                    self.client.insert(table, data, column_names=column_names)
+                else:
+                    self.client.insert(table, data)
+                logger.info(f"Inserted {len(data)} rows into {table}")
             else:
-                self.client.insert(table, data)
-            logger.info(f"Inserted {len(data)} rows into {table}")
+                raise RuntimeError("No ClickHouse connection available")
         except Exception as e:
             logger.error(f"Insert failed with error: {str(e)}")
             logger.error(f"Error type: {type(e).__name__}")
             if hasattr(e, 'message'):
                 logger.error(f"Error message: {e.message}")
             raise
+    
+    async def _insert_async_internal(self, table: str, data: List[dict], column_names: List[str] = None):
+        """Internal async insert method for pool operations"""
+        async with self._pool.get_connection() as conn:
+            if column_names:
+                conn.insert(table, data, column_names=column_names)
+            else:
+                conn.insert(table, data)
+            logger.info(f"Inserted {len(data)} rows into {table}")
 
     def close(self):
         """Close connection"""
@@ -130,14 +160,16 @@ class ClickHouseClient:
     
     async def insert_async(self, table: str, data: List[dict], column_names: List[str] = None):
         """Insert data into table asynchronously"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            self._executor,
-            self.insert,
-            table,
-            data,
-            column_names
-        )
+        if self.use_pool and self._pool:
+            # Use the async pool directly
+            await self._insert_async_internal(table, data, column_names)
+        else:
+            # For single connection, use thread pool
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                self._executor,
+                lambda: self.insert(table, data, column_names)
+            )
     
     @classmethod
     def shutdown_executor(cls):

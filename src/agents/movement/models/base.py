@@ -79,14 +79,27 @@ class RecurringPattern:
 
 
 @dataclass
+class ResolvedLocation:
+    """Resolved location from Google Places or other sources"""
+    name: str
+    lat: float
+    lng: float
+    address: str = ""
+    place_id: Optional[str] = None
+    rating: Optional[float] = None
+    radius_meters: Optional[int] = None
+    geohash_count: Optional[int] = None
+
+@dataclass
 class SpatialFilter:
     """Spatial filter definition"""
     method: str
     value: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = None  # Deprecated - use resolved_locations
+    longitude: Optional[float] = None  # Deprecated - use resolved_locations
     radius_meters: Optional[int] = 1000  # Default 1km radius
     polygon: Optional[List[List[float]]] = None
+    resolved_locations: Optional[List[Dict[str, Any]]] = None  # Array of resolved locations
 
 
 @dataclass
@@ -154,6 +167,7 @@ class Geofence:
     spatial_filter: SpatialFilter
     time_constraints: Optional[TimeConstraints] = None
     presence_requirements: Optional[PresenceRequirements] = None
+    geohash_metadata: Optional[Dict[str, Any]] = None  # Added for geohash enrichment
 
 
 @dataclass
@@ -268,6 +282,8 @@ class MovementFilterResult:
             gf_dict["spatial_filter"]["radius_meters"] = sf.radius_meters
         if sf.polygon:
             gf_dict["spatial_filter"]["polygon"] = sf.polygon
+        if sf.resolved_locations:
+            gf_dict["spatial_filter"]["resolved_locations"] = sf.resolved_locations
             
         # Add time constraints if present
         if geofence.time_constraints:
@@ -288,5 +304,9 @@ class MovementFilterResult:
                 pr_dict["aggregation_period"] = pr.aggregation_period
             if pr_dict:
                 gf_dict["presence_requirements"] = pr_dict
+        
+        # Add geohash metadata if present
+        if geofence.geohash_metadata:
+            gf_dict["geohash_metadata"] = geofence.geohash_metadata
                 
         return gf_dict

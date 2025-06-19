@@ -17,6 +17,7 @@ from .utils import parse_json_response
 from ..base_agent import BaseAgent, AgentResponse, AgentRequest
 from ...core.logger import get_logger
 from ...core.location_resolver import LocationResolver
+from ...core.geohash_storage import GeohashStorageManager
 
 logger = get_logger(__name__)
 
@@ -34,6 +35,10 @@ class MovementAgentV2(BaseAgent):
         
         # Initialize shared location resolver
         self.location_resolver = LocationResolver(resource_manager, config)
+        
+        # Initialize geohash storage with the ClickHouse client from BaseAgent
+        # BaseAgent's __init__ has already initialized self.clickhouse_client
+        self.geohash_storage = GeohashStorageManager(self.clickhouse_client)
         
         # Agent-specific components
         self.response_parser = MovementResponseParser()
@@ -177,6 +182,15 @@ class MovementAgentV2(BaseAgent):
                 "confidence": result.confidence
             }
         )
+        
+        # Enrich geofences with geohashes if requested
+        if request.context.get('enrich_geofences', True) and result.geofences:
+            self.activity_logger.action("Enriching geofences with geohash data")
+            query_id = request.context.get('query_id', request.request_id)
+            result.geofences = await self._enrich_and_persist_geofences(
+                query_id=query_id,
+                geofences=result.geofences
+            )
         
         # Create response with metadata
         return self._create_success_response(
@@ -497,6 +511,153 @@ class MovementAgentV2(BaseAgent):
                 location_to_geohashes[name] = []
         
         return location_to_geohashes
+    
+    async def _enrich_and_persist_geofences(
+        self,
+        query_id: str,
+        geofences: list
+    ) -> list:
+        """
+        Enrich geofences with resolved geohashes and persist to ClickHouse
+        
+        Args:
+            query_id: UUID for the query
+            geofences: List of Geofence objects
+            
+        Returns:
+            List of enriched geofences with geohash metadata
+        """
+        enriched_geofences = []
+        
+        for idx, geofence in enumerate(geofences):
+            try:
+                # Skip if no spatial filter
+                if not geofence.spatial_filter:
+                    enriched_geofences.append(geofence)
+                    continue
+                
+                # Resolve location to get geohashes
+                location_name = geofence.reference
+                spatial_filter = geofence.spatial_filter
+                
+                # Check if we have coordinates
+                if spatial_filter.latitude and spatial_filter.longitude:
+                    # Use provided coordinates
+                    resolved_locations = self.location_resolver.resolve_location(
+                        location_name=location_name,
+                        radius_meters=spatial_filter.radius_meters or 500,
+                        coordinates=(spatial_filter.latitude, spatial_filter.longitude)
+                    )
+                else:
+                    # Resolve by name
+                    resolved_locations = self.location_resolver.resolve_location(
+                        location_name=location_name,
+                        radius_meters=spatial_filter.radius_meters or 500
+                    )
+                
+                # Enrich spatial filter with all resolved locations
+                if resolved_locations:
+                    # Store all resolved locations with full details
+                    spatial_filter.resolved_locations = []
+                    for loc in resolved_locations:
+                        resolved_loc = {
+                            "name": loc.name,
+                            "lat": loc.lat,
+                            "lng": loc.lng,
+                            "address": loc.address or "",
+                            "place_id": loc.place_id,
+                            "rating": loc.rating,
+                            "radius_meters": loc.expanded_radius or loc.radius_meters,
+                            "geohash_count": len(loc.existing_geohashes)
+                        }
+                        spatial_filter.resolved_locations.append(resolved_loc)
+                    
+                    # For backward compatibility, also set the first location's coordinates
+                    if not (spatial_filter.latitude and spatial_filter.longitude):
+                        first_loc = resolved_locations[0]
+                        spatial_filter.latitude = first_loc.lat
+                        spatial_filter.longitude = first_loc.lng
+                        if first_loc.expanded_radius:
+                            spatial_filter.radius_meters = first_loc.expanded_radius
+                
+                # Collect all geohashes
+                all_geohashes = []
+                for loc in resolved_locations:
+                    if loc.existing_geohashes:
+                        all_geohashes.extend(loc.existing_geohashes)
+                
+                # Remove duplicates
+                unique_geohashes = list(set(all_geohashes))
+                
+                if unique_geohashes:
+                    # Store geohashes to ClickHouse
+                    # Use the first resolved location for coordinates
+                    if resolved_locations:
+                        first_loc = resolved_locations[0]
+                        stored_count = await self.geohash_storage.store_location_geohashes(
+                            query_id=query_id,
+                            location_index=idx,
+                            location_name=location_name,
+                            geohashes=unique_geohashes,
+                            latitude=first_loc.lat,
+                            longitude=first_loc.lng,
+                            radius_meters=first_loc.expanded_radius or first_loc.radius_meters,
+                            confidence=getattr(geofence, 'confidence', 1.0)
+                        )
+                        
+                        # Add metadata to geofence (without the actual geohash list)
+                        geofence.geohash_metadata = {
+                            'query_id': str(query_id),
+                            'location_name': location_name,
+                            'location_index': idx,
+                            'total_geohashes_count': len(unique_geohashes),
+                            'stored_count': stored_count,
+                            'table_name': 'telecom_db.query_location_geohashes'
+                        }
+                        
+                        self.activity_logger.info(
+                            f"Enriched geofence '{location_name}' with {len(unique_geohashes)} geohashes"
+                        )
+                    else:
+                        # No locations resolved
+                        geofence.geohash_metadata = {
+                            'query_id': str(query_id),
+                            'location_name': location_name,
+                            'location_index': idx,
+                            'total_geohashes_count': 0,
+                            'stored_count': 0,
+                            'table_name': 'telecom_db.query_location_geohashes',
+                            'error': 'No locations resolved'
+                        }
+                else:
+                    # No geohashes found
+                    geofence.geohash_metadata = {
+                        'query_id': str(query_id),
+                        'location_name': location_name,
+                        'location_index': idx,
+                        'total_geohashes_count': 0,
+                        'stored_count': 0,
+                        'table_name': 'telecom_db.query_location_geohashes',
+                        'error': 'No geohashes found in area'
+                    }
+                
+                enriched_geofences.append(geofence)
+                
+            except Exception as e:
+                logger.error(f"Error enriching geofence {idx}: {e}")
+                # Add error metadata
+                geofence.geohash_metadata = {
+                    'query_id': str(query_id),
+                    'location_name': geofence.reference,
+                    'location_index': idx,
+                    'total_geohashes_count': 0,
+                    'stored_count': 0,
+                    'table_name': 'telecom_db.query_location_geohashes',
+                    'error': str(e)
+                }
+                enriched_geofences.append(geofence)
+        
+        return enriched_geofences
 
     def _enhance_prompt_with_schema(self, user_prompt: str) -> str:
         """Add schema hint to prompt for retry"""

@@ -211,6 +211,7 @@ agents:
     required_resources:
       - llm
       - session
+      - clickhouse  # Added for geohash storage
     default_radius_meters: 1000
     default_time_window_days: 7
     default_pattern_window_days: 30

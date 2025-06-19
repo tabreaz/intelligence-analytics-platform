@@ -1,11 +1,12 @@
 # src/agents/location_extractor/location_processor.py
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import requests
 
 from src.core.logger import get_logger
+from src.core.location_resolver import LocationResolver, ResolvedLocation
 from .constants import DEFAULT_RADIUS_METERS, DEFAULT_MAX_RESULTS, MAX_RESPONSE_LOG_LENGTH
 
 logger = get_logger(__name__)
@@ -25,9 +26,11 @@ class LocationResult:
 class LocationProcessor:
     """Process location queries and extract geohashes"""
 
-    def __init__(self, config: Dict, llm_client, redis_manager):
+    def __init__(self, config: Dict, llm_client, location_resolver: Optional[LocationResolver] = None, redis_manager=None):
         self.config = config
         self.llm_client = llm_client
+        self.location_resolver = location_resolver
+        # Keep redis_manager for backward compatibility
         self.redis_manager = redis_manager
         self.google_api_key = config.get('google_places', {}).get('api_key')
         self.max_results = config.get('google_places', {}).get('max_results', DEFAULT_MAX_RESULTS)
@@ -204,36 +207,62 @@ class LocationProcessor:
 
     def _process_location(self, location_data: Dict) -> List[LocationResult]:
         """Process location and get existing geohashes from Redis"""
-
         location_name = location_data['location']
         radius_meters = location_data.get('radius_meters', self.default_radius)
-
-        # Get all matching places from Google
-        places = self._google_search_all_locations(location_name)
-
-        results = []
-        for place in places:
-            # Get existing geohashes from Redis within radius
-            existing_geohashes = self.redis_manager.get_geohashes_in_radius(
-                place['lat'], place['lng'], radius_meters
+        
+        # Use LocationResolver if available, otherwise fall back to old method
+        if self.location_resolver:
+            # Use the new shared LocationResolver
+            resolved_locations = self.location_resolver.resolve_location(
+                location_name=location_name,
+                radius_meters=radius_meters
             )
-
-            result = LocationResult(
-                name=place['name'],
-                lat=place['lat'],
-                lng=place['lng'],
-                radius_meters=radius_meters,
-                existing_geohashes=existing_geohashes,
-                address=place.get('address', ''),
-                rating=place.get('rating', 0.0)
-            )
-            results.append(result)
-
-        return results
+            
+            # Convert ResolvedLocation to LocationResult
+            results = []
+            for loc in resolved_locations:
+                result = LocationResult(
+                    name=loc.name,
+                    lat=loc.lat,
+                    lng=loc.lng,
+                    radius_meters=loc.radius_meters,
+                    existing_geohashes=loc.existing_geohashes,
+                    address=loc.address or "",
+                    rating=loc.rating or 0.0
+                )
+                results.append(result)
+            
+            return results
+        else:
+            # Fallback to old method
+            places = self._google_search_all_locations(location_name)
+            
+            results = []
+            for place in places:
+                # Get existing geohashes from Redis within radius
+                existing_geohashes = []
+                if self.redis_manager:
+                    existing_geohashes = self.redis_manager.get_geohashes_in_radius(
+                        place['lat'], place['lng'], radius_meters
+                    )
+                
+                result = LocationResult(
+                    name=place['name'],
+                    lat=place['lat'],
+                    lng=place['lng'],
+                    radius_meters=radius_meters,
+                    existing_geohashes=existing_geohashes,
+                    address=place.get('address', ''),
+                    rating=place.get('rating', 0.0)
+                )
+                results.append(result)
+            
+            return results
 
     def _google_search_all_locations(self, query: str) -> List[Dict]:
-        """Search Google Places"""
-
+        """Search Google Places - DEPRECATED: Use LocationResolver instead"""
+        logger.warning("Using deprecated _google_search_all_locations. Consider using LocationResolver.")
+        
         if not self.google_api_key:
             logger.error("Google Places API key not configured")
             return []

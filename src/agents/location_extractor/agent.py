@@ -7,12 +7,12 @@ import re
 from datetime import datetime
 from typing import List, Dict, Any
 
-from .geohash_storage import GeohashStorageManager
 from .location_processor import LocationProcessor
 from .redis_manager import RedisGeohashManager
 from ..base_agent import BaseAgent, AgentResponse, AgentRequest
 from ...core.logger import get_logger
 from ...core.location_resolver import LocationResolver
+from ...core.geohash_storage import GeohashStorageManager
 
 logger = get_logger(__name__)
 
@@ -31,23 +31,16 @@ class LocationExtractorAgent(BaseAgent):
         redis_client = resource_manager.get_redis_client()
         self.redis_manager = RedisGeohashManager({'client': redis_client})
         
-        # Initialize geohash storage manager (ClickHouse)
-        self.geohash_storage = None
-        try:
-            ch_pool = resource_manager.get_clickhouse_pool()
-            # Create a ClickHouseClient with the pool
-            from ...core.database.clickhouse_client import ClickHouseClient
-            ch_config = resource_manager.config_manager.get_database_config('clickhouse')
-            ch_client = ClickHouseClient(ch_config, use_pool=True)
-            ch_client._pool = ch_pool  # Use the shared pool
-            self.geohash_storage = GeohashStorageManager(ch_client)
-        except Exception as e:
-            logger.warning(f"Could not initialize geohash storage: {e}")
+        # Initialize geohash storage manager with ClickHouse client from BaseAgent
+        self.geohash_storage = GeohashStorageManager(self.clickhouse_client)
         
-        # Initialize location processor with LLM client from resource manager
+        # Initialize location processor with LLM client and location resolver
         llm_client = resource_manager.get_llm_client()
         self.location_processor = LocationProcessor(
-            config, llm_client, self.redis_manager
+            config=config,
+            llm_client=llm_client,
+            location_resolver=self.location_resolver,
+            redis_manager=self.redis_manager  # Keep for backward compatibility
         )
         
         # Log initialization status
