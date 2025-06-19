@@ -33,6 +33,7 @@ class AgentManager:
         from src.agents.query_orchestrator.agent import QueryOrchestratorAgent
         from src.agents.unified_filter.agent import UnifiedFilterAgent
         from src.agents.query_executor.agent import QueryExecutorAgent
+        from src.agents.movement.agent import MovementAgent
 
         # Placeholder for other agents
         class PlaceholderAgent(BaseAgent):
@@ -52,7 +53,8 @@ class AgentManager:
             'entity_annotator': EntityAnnotatorAgent,
             'query_orchestrator': QueryOrchestratorAgent,
             'unified_filter': UnifiedFilterAgent,
-            'query_executor': QueryExecutorAgent
+            'query_executor': QueryExecutorAgent,
+            'movement': MovementAgent
         }
 
         for agent_name, agent_class in agent_classes.items():
@@ -63,7 +65,7 @@ class AgentManager:
                     modernized_agents = [
                         'time_parser', 'risk_filter', 'profile_filter', 'location_extractor',
                         'query_classifier', 'entity_annotator', 'unified_filter', 
-                        'query_orchestrator', 'query_executor'
+                        'query_orchestrator', 'query_executor', 'movement'
                     ]
                     
                     if agent_name in modernized_agents and self.resource_manager:

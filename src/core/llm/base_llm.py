@@ -82,6 +82,39 @@ class AnthropicClient(BaseLLMClient):
             logger.error(f"Anthropic API error: {e}")
             raise
 
+class QwenClient(BaseLLMClient):
+    """Qwen client implementation using DashScope"""
+
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        from dashscope import Generation
+        self.Generation = Generation
+        self.api_key = config.api_key
+
+    async def generate(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
+        """Generate response using Qwen (DashScope)"""
+        try:
+            gen = self.Generation(api_key=self.api_key)
+
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+
+            response = gen.call(
+                model=self.config.model,
+                prompt=full_prompt,
+                max_output_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+                **kwargs
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"Qwen API returned status code {response.status_code}: {response.message}")
+
+            return response.output.text
+
+        except Exception as e:
+            logger.error(f"Qwen API call error: {e}")
+            raise
+
 
 class LLMClientFactory:
     """Factory for creating LLM clients"""
@@ -94,5 +127,7 @@ class LLMClientFactory:
             return OpenAIClient(config)
         elif 'claude' in config.model.lower():
             return AnthropicClient(config)
+        elif 'qwen' in config.model.lower() or 'dashscope' in config.model.lower():
+            return QwenClient(config)
         else:
             raise ValueError(f"Unsupported LLM model: {config.model}")

@@ -1,6 +1,6 @@
 # Let's generate the full combined prompt text based on user's original and suggested enhancements
 
-combined_prompt = """
+PROFILE_FILTER_PROMPT = """
 # Profile Filter + Query Plan Agent Prompt
 
 You are a Profile Filter and Query Planning Agent. Your job is to extract structured filters and optional query plans from natural language prompts.
@@ -122,8 +122,18 @@ You are a Profile Filter and Query Planning Agent. Your job is to extract struct
 - "South Asians" → nationality_code IN ["IND", "PAK", "BGD", "LKA", "NPL"]
 - "Arabs" → nationality_code IN ["ARE", "SAU", "KWT", "BHR", "QAT", "OMN", "JOR", "LBN", "SYR", "IRQ", "EGY", "YEM"]
 
-### IMPORTANT
+## IMPORTANT
 - has_movement_filter - true if the user prompt is specially talking about Location Update Records or movements.
+
+## Field Types and Operators
+
+| Field Type | Allowed Operators |
+|------------|------------------|
+| Numeric (`age`, `risk_score`) | `>`, `<`, `>=`, `<=`, `=`, `!=`, `BETWEEN` |
+| String (`gender_en`, `nationality_code`) | `=`, `!=`, `IN`, `NOT IN` |
+| Array (`travelled_country_codes`, `applications_used`) | `CONTAINS`, `CONTAINS_ANY`, `CONTAINS_ALL`, `LENGTH >`, `LENGTH <`, `LENGTH =` |
+| Boolean (`has_crime_case`, `is_weekend`) | `=`, `!=` |
+
 
 ## 🧾 OUTPUT FORMAT
 

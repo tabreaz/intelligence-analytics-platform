@@ -58,6 +58,10 @@ class ProfileFilterAgent(BaseAgent):
         if not llm_response:
             raise ValueError("Failed to get valid LLM response after retries")
         
+        # Store LLM response if capture is requested
+        if request.context.get('capture_llm_response', False):
+            self._last_llm_response = llm_response
+        
         # Parse response
         self.activity_logger.action("Parsing profile filter response")
         result = self.response_parser.parse(llm_response)
